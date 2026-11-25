@@ -768,11 +768,12 @@ function screenshotHistory(data) {
 }
 
 test("historyKey keys a tool_result image by its hash, not its bytes", () => {
-  const data = "A".repeat(200_000)
+  const data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=".repeat(2_200)
+  const other = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAAAP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AfwA=".repeat(1_000)
   const key = historyKey(screenshotHistory(data))
   assert.ok(key.length < 2_000, `key is ${key.length} chars`)
-  assert.ok(!key.includes("AAAAAAAAAAAAAAAA"))
-  assert.notEqual(key, historyKey(screenshotHistory("B".repeat(200_000))))
+  assert.ok(!key.includes("iVBORw0KGgo"))
+  assert.notEqual(key, historyKey(screenshotHistory(other)))
   assert.equal(key, historyKey(screenshotHistory(data)))
 })
 

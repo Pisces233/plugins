@@ -20,7 +20,8 @@ fs.writeFileSync(path.join(workspace, "bridge.mjs"), source + "\nexport { inspec
 const { inspectToolTurn, matchToolResults, historyKey, allProcs, toolCalls, renderInitialPromptParts, withStateLock, execOnce } = await import(pathToFileURL(path.join(workspace, "bridge.mjs")).href)
 after(() => fs.rmSync(workspace, { recursive: true, force: true }))
 
-const image = { type: "image", source: { type: "base64", media_type: "image/png", data: "aW1hZ2VB" } }
+// a real 1x1 PNG: the byte validator the fake "imageA" string could not pass
+const image = { type: "image", source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=" } }
 const result = (id, name, text) => ({
   block: { type: "tool_result", tool_use_id: id, content: text },
   call: { id, name },
