@@ -13,7 +13,7 @@ import { backgroundBlocked, cannotSignIn, forgetStoredSignIn, heldByAnother, isK
 import { sanitizePatternFields } from "./re2-pattern.mjs"
 import { startLogin } from "./login.mjs"
 import { accountsDir, currentHome, dropHome, homeIdOfAuth, homeOf, inAccount, newHome, tokenFile } from "./account.mjs"
-import { IMPORT_FROM, importedAccounts, tokenFileText } from "./import.mjs"
+import { IMPORT_FROM, fromRefreshText, importedAccounts, tokenFileText } from "./import.mjs"
 import { AGY_MANUAL, installAgy, keepAgyCurrent } from "./install.mjs"
 import { documentRefusal, documentText } from "./documents.mjs"
 import { ensureGeminiArrayItems } from "./array-items.mjs"
@@ -7614,44 +7614,61 @@ async function homeOfEmail(email) {
 // one an account home of its own, whose token file is the sign-in, kept
 // once agy lists the account's models with it. An account signed in here
 // already is left as it is and named again, so it isn't added twice.
+// addImportedHome adds the account a ({ email, refresh, access, expires })
+// as a home of its own, as importSignIns does each account of a file: its
+// token file written, agy asked to list the account's models with it, and
+// the home dropped when the sign-in doesn't take. An account this magpie
+// has under the same email is named again instead of added twice.
+async function addImportedHome(agy, a) {
+  const failed = (error) => ({ type: "failed", error, ...(a.email ? { accountId: a.email } : {}) })
+  if (a.email) {
+    const had = await homeOfEmail(a.email)
+    if (had !== null) return inAccount(homeOf(had), () => signedInAs(had))
+  }
+  let account
+  try {
+    account = newHome()
+    const file = tokenFile(account.home)
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+    fs.writeFileSync(file, tokenFileText(a), { mode: 0o600 })
+  } catch (error) {
+    if (account) dropHome(account.home)
+    return failed(`couldn't make a folder for the account: ${error.message}`)
+  }
+  return inAccount(account.home, async () => {
+    forgetStoredSignIn()
+    forgetOffered()
+    const probe = await probeSignedIn(agy)
+    if (!probe.ok) {
+      dropHome(account.home)
+      return failed(`agy couldn't sign in with it: ${probe.why}`)
+    }
+    return signedInAs(account.id)
+  })
+}
+
 async function importSignIns(texts) {
   const accounts = importedAccounts(texts)
-  if (!accounts.length) return { type: "failed", error: "no Antigravity sign-in in it: take the retired Antigravity plugin's sign-in or agy's token file" }
+  if (!accounts.length) return { type: "failed", error: "no Antigravity sign-in in it: take the retired Antigravity plugin's sign-in, agy's token file, or a Google refresh token" }
   const agy = findAgy()
   if (!agy) return noAgy()
   const out = []
-  for (const a of accounts) {
-    const failed = (error) => ({ type: "failed", error, ...(a.email ? { accountId: a.email } : {}) })
-    if (a.email) {
-      const had = await homeOfEmail(a.email)
-      if (had !== null) {
-        out.push(await inAccount(homeOf(had), () => signedInAs(had)))
-        continue
-      }
-    }
-    let account
-    try {
-      account = newHome()
-      const file = tokenFile(account.home)
-      fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
-      fs.writeFileSync(file, tokenFileText(a), { mode: 0o600 })
-    } catch (error) {
-      if (account) dropHome(account.home)
-      out.push(failed(`couldn't make a folder for the account: ${error.message}`))
-      continue
-    }
-    out.push(await inAccount(account.home, async () => {
-      forgetStoredSignIn()
-      forgetOffered()
-      const probe = await probeSignedIn(agy)
-      if (!probe.ok) {
-        dropHome(account.home)
-        return failed(`agy couldn't sign in with it: ${probe.why}`)
-      }
-      return signedInAs(account.id)
-    }))
-  }
+  for (const a of accounts) out.push(await addImportedHome(agy, a))
   return out
+}
+
+// refreshTokenSignIn is the account a pasted refresh token (an export's
+// rt) signs in: its home keeps it as agy's token file, and agy says
+// whether Google takes it. email only names it when agy's sign-in doesn't.
+async function refreshTokenSignIn(agy, inputs) {
+  const a = fromRefreshText(inputs?.refresh_token ?? "")
+  if (!a) return { type: "failed", error: "paste the Google OAuth refresh token itself (it starts with 1//)" }
+  const email = String(inputs?.email ?? "").trim()
+  if (email && !/^[^\s@]+@[^\s@]+$/.test(email)) {
+    return { type: "failed", error: "that doesn't look like an email address" }
+  }
+  if (email && !a.email) a.email = email.slice(0, 200)
+  return addImportedHome(agy, a)
 }
 
 // homeOfAuth is the home of the account a saved sign-in is, null for
@@ -7787,6 +7804,37 @@ export const AntigravityBridgePlugin = async () => {
               return { type: "failed", error: `couldn't make a folder for the account: ${error.message}` }
             }
             return googleSignIn(agy, account)
+          },
+        },
+        {
+          // A Google OAuth refresh token from another tool's export
+          // (Cockpit Tools' rt, a copied 1//… line): no browser, no code —
+          // the token becomes the account home's sign-in, and agy says
+          // whether Google takes it, as Import accounts does.
+          type: "api",
+          label: "Sign in with a refresh token",
+          labels: { zh: "使用 refresh token 登录", "zh-TW": "使用 refresh token 登入", ja: "リフレッシュトークンでサインイン" },
+          prompts: [
+            {
+              type: "password",
+              key: "refresh_token",
+              message: "Google OAuth refresh token",
+              messages: { zh: "Google OAuth refresh token（1//…）", "zh-TW": "Google OAuth refresh token（1//…）", ja: "Google OAuth リフレッシュトークン（1//…）" },
+              placeholder: "1//…",
+              validate: (v) => fromRefreshText(v) ? null : "it should be the refresh token alone (it starts with 1//), no quotes or braces",
+            },
+            {
+              type: "text",
+              key: "email",
+              message: "Google account email (optional)",
+              messages: { zh: "Google 账号邮箱（可留空）", "zh-TW": "Google 帳號電子郵件（可留空）", ja: "Google アカウントのメール（任意）" },
+              placeholder: "name@gmail.com",
+            },
+          ],
+          authorize: async (inputs) => {
+            const agy = findAgy()
+            if (!agy) return noAgy()
+            return refreshTokenSignIn(agy, inputs)
           },
         },
       ],

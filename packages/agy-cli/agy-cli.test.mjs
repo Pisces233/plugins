@@ -36,6 +36,7 @@ for (const [name, mocks] of [
   ["tools-listed.mjs", false],
   ["concurrent-convs.mjs", false],
   ["masking-drift.mjs", false],
+  ["rt-signin.mjs", true],
 ]) {
   test(`test/${name}`, () => {
     // bun's 5s default per test is a fixed wait these process-spawning tests

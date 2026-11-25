@@ -138,7 +138,9 @@ magpie plugin add @magpie-community/opencode-agy-cli-auth
    复制运行 agy。系统钥匙串只读不写。0.1.113 之前就已不在 agy 里的账号没有这份复制，需要再登录一次。
    用过已退役的 Antigravity 插件（`antigravity`）的话，Magpie 的 Providers 页顶上会提示把那里的
    账号移过来，点 Move 即可；也可以在 agy-cli 的 Import accounts from a file… 里选那份登录记录
-   或 agy 的令牌文件。它们本就是 Antigravity 自己的 Google 登录，每个账号放进自己的 agy 主目录，
+   或 agy 的令牌文件。从别的工具导出的 Google OAuth refresh token（1//…，Cockpit Tools 的 rt）
+   也一样：在登录页选「使用 refresh token 登录」粘贴，或在 Import accounts 里单独放一行。
+   它们本就是 Antigravity 自己的 Google 登录，每个账号放进自己的 agy 主目录，
    由 agy 检查通过后才加入，凭据不会发到别处。
 2. 模型名写成 `agy-cli/<模型>`。agy 对同一模型不同思考等级给出的多个模型 ID，
    在这里会合并成一个模型的多个变体，请求时再映射回对应的 agy ID。
