@@ -204,9 +204,12 @@ After installing, sign in from Magpie; no terminal needed.
    Accounts signed in on the retired Antigravity plugin (`antigravity`) move
    over from the line Magpie shows over its Providers list (Move), or from
    agy-cli's Import accounts from a file…, which takes that plugin's sign-in or
-   agy's own token file. They are Antigravity's own Google sign-ins: each gets
-   an agy home of its own and is added once agy signs in with it, and the
-   credential goes nowhere else.
+   agy's own token file. A Google OAuth refresh token (1//…) exported from
+   another tool (Cockpit Tools' rt) works the same way: pick "Sign in with a
+   refresh token" on the Sign in page and paste it, or paste it on a line of
+   its own in Import accounts. They are Antigravity's own Google sign-ins:
+   each gets an agy home of its own and is added once agy signs in with it,
+   and the credential goes nowhere else.
 2. Refer to models as `agy-cli/<model>`. When agy lists separate model IDs
    for different thinking levels, they are grouped here as variants of one model,
    and each request is mapped back to the matching agy ID.

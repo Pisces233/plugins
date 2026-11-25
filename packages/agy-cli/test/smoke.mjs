@@ -775,7 +775,8 @@ const legacyModel = "agy-cli/gemini-test-low"
   const before = logs().filter(event => event.type === "models").length
   const result = await plugin.auth.methods[0].authorize()
   const probes = logs().filter(event => event.type === "models").slice(before)
-  check("sign-in is agy's Google sign-in, an oauth way, and a way to add another account", plugin.auth.methods.length === 2 && plugin.auth.methods.every(m => m.type === "oauth"))
+  check("sign-in is agy's Google sign-in, two oauth ways, and a refresh-token way",
+    plugin.auth.methods.length === 3 && plugin.auth.methods.slice(0, 2).every(m => m.type === "oauth") && plugin.auth.methods[2].type === "api")
   check("signed in to agy already, the sign-in opens nothing", result.url === "" && result.method === "auto")
   check("signed in to agy already, the sign-in saves agy", (await result.callback())?.type === "success")
   check("authorize login probe disables auto update", probes.length === 1 && probes[0].update === "true")
@@ -886,8 +887,12 @@ const legacyModel = "agy-cli/gemini-test-low"
     const fromFile = await plugin.auth.import(["go-keyring-base64:" + Buffer.from(agyOwn).toString("base64")])
     check("agy's own stored sign-in is taken too", fromFile?.[0]?.type === "success" && fromFile[0].metadata?.email === "own-c@example.com", JSON.stringify(fromFile))
 
-    const other = await plugin.auth.import([JSON.stringify({ refresh_token: "1//someone-else", client_id: "x.apps.googleusercontent.com" }), "1//bare-token"])
-    check("a refresh token that may be another client's isn't taken", other?.type === "failed" && /no Antigravity sign-in/.test(other.error), JSON.stringify(other))
+    // a bare 1//… line and an export's { refresh_token } are taken now, each
+    // checked with agy; what isn't a sign-in still fails
+    const rt = await plugin.auth.import(["1//rt-file-token file-rt@example.com"])
+    check("a refresh token on a line is taken as Antigravity's own sign-in", rt?.[0]?.type === "success" && rt[0].metadata?.email === "file-rt@example.com", JSON.stringify(rt))
+    const other = await plugin.auth.import(["not a token at all"])
+    check("a line that isn't a sign-in fails", other?.type === "failed" && /no Antigravity sign-in/.test(other.error), JSON.stringify(other))
   } finally {
     if (savedState === undefined) delete process.env.XDG_STATE_HOME
     else process.env.XDG_STATE_HOME = savedState
